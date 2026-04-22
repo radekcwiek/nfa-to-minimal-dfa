@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>NFA to DFA conversion</title>
+	<style>
+		body {
+			text-align: center;
+			font-family: monospace;
+		}
+		button {
+			border: none;
+			color: white;
+			background-color: darkblue;
+			padding: 1em;
+			text-align: center;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 1em;
+			margin: 0.2em;
+			cursor: pointer;
+		}
+		select {
+			padding: 0.2em;
+			margin: 0.2em;
+			text-align: center;
+			font-size: 1em;
+			text-decoration: none;
+			display: inline-block;
+			cursor: pointer;
+		}
+		label, input[type=checkbox]{
+			font-size: 1.5em;
+		}
+		table {
+			margin: 0px auto;
+			font-size: 1.5em;
+		}
+		tr:nth-child(even) {
+			background-color: lightblue;
+		}
+		th {
+			background-color: lightgrey;
+		}
+		th, td {
+			padding: 0.2em;
+		}
+		td {
+			text-align: left;
+		}
+	</style>
+</head>
+<body>
+	<br>
+	
+	<div id="uiTransitions">
+	</div>
+	
+	<br>	
+	<div>
+		<button type="button" onclick="addTransitionToDOM()">
+			ADD TRANSITION
+		</button>
+		<button type="button" onclick="removeTransitionFromDOM()">
+			DELETE LAST
+		</button>
+	</div>
+	<br>
+	<div id="uiStatesDetails">
+	</div>	
+	<br>
+	<div>
+		<button type="button" onclick="displayResult()">
+			COMPUTE DFA
+		</button>
+	</div>
+	<br>	
+	<div id="displayResult">
+		
+	</div>	
+<script>
+
+
+////////////////////	INPUT UI functions	///////////////////////////////////
+
+
+function addTransitionToDOM(){
+	
+	var uiTransitions = document.getElementById("uiTransitions");
+	uiTransitions.insertAdjacentHTML('beforeend', 
+		'<div>\
+			<select onchange="collectStatesDetails()">\
+				<option>q0</option>\
+				<option>q1</option>\
+				<option>q2</option>\
+				<option>q3</option>\
+				<option>q4</option>\
+				<option>q5</option>\
+				<option>q6</option>\
+				<option>q7</option>\
+				<option>q8</option>\
+				<option>q9</option>\
+			</select>\
+			<select>\
+				<option>a</option>\
+				<option>b</option>\
+				<option>c</option>\
+				<option>d</option>\
+				<option>e</option>\
+				<option>f</option>\
+				<option>g</option>\
+				<option>h</option>\
+				<option>i</option>\
+				<option>j</option>\
+			</select>\
+			<select onchange="collectStatesDetails()">\
+				<option>q0</option>\
+				<option>q1</option>\
+				<option>q2</option>\
+				<option>q3</option>\
+				<option>q4</option>\
+				<option>q5</option>\
+				<option>q6</option>\
+				<option>q7</option>\
+				<option>q8</option>\
+				<option>q9</option>\
+			</select>\
+		</div>');
+	collectStatesDetails();
+}
+
+
+function removeTransitionFromDOM(){
+
+	var uiTransitions = document.getElementById("uiTransitions");
+	uiTransitions.removeChild(uiTransitions.lastElementChild);
+	collectStatesDetails();	
+}
+
+
+function collectStatesDetails(){
+
+	var statesNFASet = getNFAStatesSet();
+	var states = document.getElementById("uiStatesDetails");
+	states.textContent = "";	
+	
+	for (let state of statesNFASet) 
+		states.insertAdjacentHTML('beforeend', 
+			'<div>\
+				<label for="noname">' + state + '</label>\
+				<input type="checkbox" name="noname">\
+				<input type="checkbox">\
+			</div>');
+}
+
+
+////////////////////	DATA collecting		///////////////////////////////////
+
+
+function getNFAStates(){
+
+	var states = document.getElementById("uiStatesDetails");
+	var children = states.children;
+	var statesDetailsNFASet = new Set();
+	
+	for (let i = 0; i < children.length; i++){		
+		var stateName = children[i].children[0].innerText;
+		var isInitial = children[i].children[1].checked;
+		var isFinal = children[i].children[2].checked;
+		var state = {stateName: stateName, isInitial: isInitial, isFinal: isFinal};
+		statesDetailsNFASet.add(state);
+	}
+	return statesDetailsNFASet;
+}
+
+
+function getNFATransitionsSet(){
+
+	var uiTransitions = document.getElementById("uiTransitions");
+	var transitionsNFASet = new Set();
+	var children = uiTransitions.children;
+	
+	for (let i = 0; i < children.length; i++){	
+		var source = children[i].children[0].options[children[i].children[0].selectedIndex].text;
+		var symbol = children[i].children[1].options[children[i].children[1].selectedIndex].text;
+		var target = children[i].children[2].options[children[i].children[2].selectedIndex].text;
+		var transition = {source: source, symbol: symbol, target: target};
+		transitionsNFASet.add(transition);
+	}
+		
+	return transitionsNFASet;
+}
+
+
+function getNFAStatesSet(){
+	
+	var uiTransitions = document.getElementById("uiTransitions");
+	var statesArray = [];
+	var children = uiTransitions.children;
+	
+	for (let i = 0; i < children.length; i++){		
+		var state = children[i].children[0].options[children[i].children[0].selectedIndex].text;
+		statesArray.push(state);
+		var state = children[i].children[2].options[children[i].children[2].selectedIndex].text;
+		statesArray.push(state);
+	}
+	
+	statesArray.sort();
+	var statesNFASet = new Set(statesArray);
+	return statesNFASet;
+}
+
+
+function getNFAInitialStatesSet(){
+
+	var statesNFASet = getNFAStates();
+	var initialStatesNFASet = new Set();
+	
+	for (let item of statesNFASet) 
+		if (item["isInitial"]) initialStatesNFASet.add(item["stateName"]);	
+	return initialStatesNFASet;
+}
+
+
+function getNFAFinalStatesSet(){
+
+	var statesNFASet = getNFAStates();
+	var finalStatesNFASet = new Set();
+	
+	for (let item of statesNFASet) 
+		if (item["isFinal"]) finalStatesNFASet.add(item["stateName"]);	
+	return finalStatesNFASet;
+}
+
+
+function getAlphabet(){
+	
+	var uiTransitions = document.getElementById("uiTransitions");
+	var alphabetSet = new Set();
+	var children = uiTransitions.children;
+	
+	for (let i = 0; i < children.length; i++){		
+		var symbol = children[i].children[1].options[children[i].children[1].selectedIndex].text;
+		alphabetSet.add(symbol);
+	}
+	
+	var alphabetArray = Array.from(alphabetSet);
+	alphabetArray.sort();
+	alphabetSet = new Set(alphabetArray);
+	return alphabetSet;
+}
+
+
+////////////////////	UTILITIES		///////////////////////////////////////
+
+
+function isSetEqual(seta, setb){
+	if (seta.size != setb.size) return false;
+	for (let a of seta) if (!setb.has(a)) return false;
+	return true;
+}
+
+
+function createResultRow(set, boolean, alphabet){
+	var row = [];
+	var first = {source: set, done: boolean};
+	row.push(first);
+	for (let symbol of alphabet) {
+		var rest = {symbol: symbol, target: new Set()};
+		row.push(rest);
+	}
+	return row;
+}
+
+
+function printSet(set){
+	result = "{";
+	if (set.size !=0){
+		for (element of set) result = result + element + ",";
+		result = result.substring(0, result.length - 1);
+	}
+	result = result + "}";
+	return result;
+}
+
+
+////////////////////	CONVERSION		///////////////////////////////////////
+
+
+function convertNFAtoDFA(){
+
+	var aphabet = getAlphabet();
+	var initials = getNFAInitialStatesSet();
+	var transitions = getNFATransitionsSet();	
+	var result = [];
+	result.push(createResultRow(initials, false, aphabet));	
+	for (let i = 0; i < result.length; i++){
+		if (result[i][0].done == false){
+			for (let j = 1; j < result[i].length; j++){
+				for (let state of result[i][0].source){
+					for (let transition of transitions){
+						if (state == transition.source && result[i][j].symbol == transition.symbol){
+							result[i][j].target.add(transition.target);
+						}
+					}
+				}
+				if (result[i][j].target.size != 0){
+					var setArray = Array.from(result[i][j].target);
+					setArray.sort();
+					result[i][j].target = new Set(setArray);
+					var isNewSet = true;
+					for (let k = 0; k < result.length; k++){
+						if (isSetEqual(result[i][j].target, result[k][0].source)){
+							isNewSet = false;
+							break;						
+						}
+					}					
+					if (isNewSet == true){
+						result.push(createResultRow(result[i][j].target, false, aphabet));
+					}
+				}	
+			}
+			result[i][0].done = true;
+		}	
+	}
+	var emptySetFound = false;
+	for (let i = 0; i < result.length; i++){
+		if (emptySetFound) break;
+		for (let j = 1; j < result[i].length; j++){
+			if (result[i][j].target.size == 0){
+				result.push(createResultRow(new Set(), true, aphabet));
+				emptySetFound = true;
+				break;
+			}
+		}
+	}
+	return result;	
+}
+
+
+////////////////////	MINIMIZE DFA	///////////////////////////////////////
+
+
+function miniDFA(){
+	
+	
+}
+
+
+////////////////////	RESULT DFA	///////////////////////////////////////////
+
+
+function displayResult(){
+
+	var result = document.getElementById("displayResult");
+	var alphabet = getAlphabet();
+	result.textContent = "";
+	
+	var dfa = convertNFAtoDFA();
+	
+	var table = "<table><tr><th></th>";
+	for (let symbol of alphabet){
+		table = table + "<th>" + symbol + "</th>";
+	}
+	table = table + "</tr>";
+	for (let i = 0; i < dfa.length; i++){
+		table = table + "<tr>";
+		table = table + "<td>" + printSet(dfa[i][0].source) + "</td>";
+		for (let j = 1; j < dfa[i].length; j++){
+			table = table + "<td>" + printSet(dfa[i][j].target) + "</td>";
+		}
+		table = table + "</tr>";
+	}
+		
+	table = table + "</table>";
+	result.insertAdjacentHTML('beforeend', table);
+}
+
+
+</script>
+
+</body>
+</html>
+
